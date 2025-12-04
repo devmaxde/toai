@@ -1,4 +1,5 @@
 // src/main.rs
+use arboard::Clipboard;
 use clap::{ArgAction, Parser};
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use std::collections::HashSet;
@@ -16,8 +17,11 @@ struct Cli {
     #[arg(long, default_value = ".", value_name = "PATH")]
     path: PathBuf,
 
-    #[arg(long, alias = "out", value_name = "FILE")]
+    #[arg(long, alias = "out", value_name = "FILE", conflicts_with = "stdout")]
     output: Option<PathBuf>,
+
+    #[arg(long, action=ArgAction::SetTrue, conflicts_with = "output")]
+    stdout: bool,
 
     #[arg(long, action=ArgAction::Append, value_name = "PATTERN")]
     ignore: Vec<String>,
@@ -60,6 +64,7 @@ fn build_default_vec() -> Vec<&'static str> {
         ".idea",
         ".vscode",
         ".DS_Store",
+        "package-lock.json",
         "Cargo.lock",
         "LICENSE",
         "__pycache__",
@@ -184,17 +189,15 @@ fn main() -> io::Result<()> {
     walk(&root, &root, &ignore_globs, &ignore_exact, &mut files)?;
     files.sort();
 
-    let write_one = |w: &mut dyn Write, rel: &Path| -> io::Result<()> {
+    let format_one = |rel: &Path| -> io::Result<String> {
         let abs = root.join(rel);
         let bytes = fs::read(&abs)?;
         let content = String::from_utf8_lossy(&bytes);
-        writeln!(w, "# {}", rel.to_string_lossy())?;
-        writeln!(w, "{content}")?;
-        writeln!(w)?;
-        Ok(())
+        Ok(format!("# {}\n```\n{content}```\n\n", rel.to_string_lossy()))
     };
 
     if let Some(out_path) = cli.output {
+        // Write to file
         if let Some(parent) = out_path.parent() {
             if !parent.as_os_str().is_empty() {
                 fs::create_dir_all(parent)?;
@@ -203,16 +206,28 @@ fn main() -> io::Result<()> {
         let file = File::create(out_path)?;
         let mut w = BufWriter::new(file);
         for rel in files {
-            write_one(&mut w, &rel)?;
+            write!(w, "{}", format_one(&rel)?)?;
         }
         w.flush()?;
-    } else {
+    } else if cli.stdout {
+        // Write to stdout
         let stdout = io::stdout();
         let mut w = BufWriter::new(stdout.lock());
         for rel in files {
-            write_one(&mut w, &rel)?;
+            write!(w, "{}", format_one(&rel)?)?;
         }
         w.flush()?;
+    } else {
+        // Default: Copy to clipboard
+        let mut output = String::new();
+        for rel in files {
+            output.push_str(&format_one(&rel)?);
+        }
+        let mut clipboard = Clipboard::new().expect("Failed to access clipboard");
+        clipboard
+            .set_text(&output)
+            .expect("Failed to copy to clipboard");
+        eprintln!("Copied to clipboard!");
     }
 
     Ok(())

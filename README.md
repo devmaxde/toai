@@ -2,6 +2,8 @@
 
 toai is a tiny Rust CLI that dumps a folder into an AI-friendly text format.  
 Each file is printed with its relative path header, followed by its contents.  
+**By default, the output is copied directly to your clipboard** – ready to paste into any AI chat.
+
 Example of the output format:
 
 # src/main.tsx
@@ -36,22 +38,25 @@ toai [OPTIONS]
 
 Common examples:
 
-1. Dump current directory to a file  
-   toai --path . --output output.txt
-
-2. Dump a specific folder  
-   toai --path ./my-project --output ./dump.txt
-
-3. Print to stdout (no file)  
+1. Dump current directory to clipboard (default)  
    toai --path .
 
-4. Add custom ignores (repeatable, supports globs)  
-   toai --path . --output out.txt --ignore somefolder --ignore "_.png" --ignore "_.log"
+2. Dump a specific folder to clipboard  
+   toai --path ./my-project
 
-5. Disable default ignores and specify your own  
-   toai --path . --output out.txt --no-ignore-default --ignore build --ignore cache --ignore "\*.o"
+3. Write output to a file  
+   toai --path . --output output.txt
 
-6. Ensure the output file isn’t included (handled automatically if it’s inside the scanned tree)  
+4. Print to stdout (for piping)  
+   toai --path . --stdout
+
+5. Add custom ignores (repeatable, supports globs)  
+   toai --path . --ignore somefolder --ignore "\*.png" --ignore "\*.log"
+
+6. Disable default ignores and specify your own  
+   toai --path . --no-ignore-default --ignore build --ignore cache --ignore "\*.o"
+
+7. Ensure the output file isn't included (handled automatically if it's inside the scanned tree)  
    toai --path . --output ./dump/project.txt
 
 ---
@@ -62,10 +67,13 @@ Common examples:
 Root directory to scan (default: .)
 
 --output <FILE>  
-Write output to a file instead of stdout
+Write output to a file instead of clipboard
+
+--stdout  
+Print output to stdout instead of clipboard (useful for piping)
 
 --ignore <PATTERN>  
-Ignore entries matching a pattern. Supports globs like _.png, \*\*/dist, cmake-build-_  
+Ignore entries matching a pattern. Supports globs like \*.png, \*\*/dist, cmake-build-\*  
 Can be provided multiple times
 
 --no-ignore-default  
